@@ -11,3 +11,6 @@ pollster = "0.4.0"
 wesl = "0.3.2"
 wgpu = "28.0.0"
 winit = "0.30.13"
+
+[lib]
+crate-type = ["rlib"]

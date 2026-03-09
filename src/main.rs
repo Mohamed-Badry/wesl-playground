@@ -1,7 +1,6 @@
-use std::sync::Arc;
-
-use winit::{application, event_loop::EventLoop, keyboard::{KeyCode, PhysicalKey}ApplicationHandler, event::*, event_loop::{ActiveEventLoop, EventLoop}, keyboard::{KeyCode, PhysicalKey}, window::Window};
+mod canvas;
+use crate::run;
 
 fn main() {
-    println!("Hello, world!");
+    run().unwrap();
 }

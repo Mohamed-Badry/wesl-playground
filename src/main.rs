@@ -1,5 +1,4 @@
-mod canvas;
-use crate::run;
+use wesl_playground::run;
 
 fn main() {
     run().unwrap();

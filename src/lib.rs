@@ -1,3 +1,2 @@
-pub mod canvas;
-
+mod canvas;
 pub use canvas::app::run;

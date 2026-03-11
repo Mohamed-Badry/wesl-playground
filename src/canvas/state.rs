@@ -1,9 +1,13 @@
-use std::{fmt::Pointer, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
-    canvas::camera::{Camera, CameraController, CameraUniform},
+    canvas::{
+        camera::{Camera, CameraController, CameraUniform},
+        instance::{Instance, InstanceController, InstanceRaw},
+    },
     util::texture,
 };
+use cgmath::prelude::*;
 use wgpu::util::DeviceExt;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
@@ -71,6 +75,7 @@ pub struct State {
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     pub camera_controller: CameraController,
+    instance_controller: InstanceController,
 }
 
 impl State {
@@ -125,6 +130,9 @@ impl State {
         let diffuse_bytes = include_bytes!("../assets/happy-tree.png");
         let diffuse_texture =
             texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
+
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -207,8 +215,7 @@ impl State {
             label: Some("camera_bind_group"),
         });
 
-        let shader =
-            device.create_shader_module(wgpu::include_wgsl!("../shaders/shader.wgsl").into());
+        let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/shader.wgsl"));
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -223,7 +230,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[Vertex::desc()],
+                buffers: &[Vertex::desc(), InstanceRaw::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -269,8 +276,9 @@ impl State {
 
         let num_indices = INDICES.len() as u32;
 
-        let camera_controller = CameraController::new(0.01);
+        let camera_controller = CameraController::new(0.1);
 
+        let instance_controller = InstanceController::new(&device);
         Ok(Self {
             surface,
             device,
@@ -289,6 +297,7 @@ impl State {
             camera_buffer,
             camera_bind_group,
             camera_controller,
+            instance_controller,
         })
     }
 
@@ -344,8 +353,13 @@ impl State {
         render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
         render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, self.instance_controller.instance_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+        render_pass.draw_indexed(
+            0..self.num_indices,
+            0,
+            0..self.instance_controller.instances.len() as _,
+        );
 
         drop(render_pass);
 
@@ -362,6 +376,7 @@ impl State {
             }
             _ => {
                 self.camera_controller.handle_key(code, is_pressed);
+                self.instance_controller.handle_key(code, is_pressed);
             }
         };
     }
@@ -373,6 +388,19 @@ impl State {
             &self.camera_buffer,
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
+        );
+
+        let instance_data = self
+            .instance_controller
+            .instances
+            .iter()
+            .map(Instance::to_raw)
+            .collect::<Vec<_>>();
+        self.instance_controller.update_instances();
+        self.queue.write_buffer(
+            &self.instance_controller.instance_buffer,
+            0,
+            bytemuck::cast_slice(&instance_data),
         );
     }
 }

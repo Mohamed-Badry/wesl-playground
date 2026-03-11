@@ -44,7 +44,7 @@ impl Camera {
 
         let proj = cgmath::perspective(cgmath::Deg(self.fovy), self.aspect, self.znear, self.zfar);
 
-        return OPENGL_TO_WGPU_MATRIX * proj * view;
+        OPENGL_TO_WGPU_MATRIX * proj * view
     }
 }
 
@@ -69,19 +69,19 @@ impl CameraController {
 
     pub fn handle_key(&mut self, code: KeyCode, is_pressed: bool) -> bool {
         match code {
-            KeyCode::KeyW | KeyCode::ArrowUp => {
+            KeyCode::KeyW => {
                 self.is_forward_pressed = is_pressed;
                 true
             }
-            KeyCode::KeyA | KeyCode::ArrowLeft => {
+            KeyCode::KeyA => {
                 self.is_left_pressed = is_pressed;
                 true
             }
-            KeyCode::KeyS | KeyCode::ArrowDown => {
+            KeyCode::KeyS => {
                 self.is_backward_pressed = is_pressed;
                 true
             }
-            KeyCode::KeyD | KeyCode::ArrowRight => {
+            KeyCode::KeyD => {
                 self.is_right_pressed = is_pressed;
                 true
             }

@@ -3,8 +3,8 @@ use std::sync::Arc;
 use winit::{
     application::ApplicationHandler,
     event::*,
-    event_loop::{self, ActiveEventLoop, EventLoop, EventLoopBuilder},
-    keyboard::{KeyCode, PhysicalKey},
+    event_loop::{ActiveEventLoop, EventLoop},
+    keyboard::PhysicalKey,
     window::Window,
 };
 
@@ -15,7 +15,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(event_loop: &EventLoop<State>) -> Self {
+    pub fn new(_event_loop: &EventLoop<State>) -> Self {
         Self { state: None }
     }
 }

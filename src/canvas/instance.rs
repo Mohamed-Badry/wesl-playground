@@ -79,14 +79,14 @@ pub struct InstanceController {
 
 impl InstanceController {
     pub fn new(device: &wgpu::Device) -> Self {
+        const SPACE_BETWEEN: f32 = 3.0;
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let position = cgmath::Vector3 {
-                        x: x as f32,
-                        y: 0.0,
-                        z: z as f32,
-                    } - INSTANCE_DISPLACEMENT;
+                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+
+                    let position = cgmath::Vector3 { x, y: 0.0, z };
 
                     let rotation = if position.is_zero() {
                         cgmath::Quaternion::from_axis_angle(
@@ -140,10 +140,12 @@ impl InstanceController {
             }
             KeyCode::KeyQ => {
                 self.speed -= 1.0;
+                dbg!(self.speed);
                 true
             }
             KeyCode::KeyE => {
                 self.speed += 1.0;
+                dbg!(self.speed);
                 true
             }
             _ => false,

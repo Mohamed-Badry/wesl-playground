@@ -1,6 +1,6 @@
 use std::io::{BufReader, Cursor};
 
-use wgpu::{Device, util::DeviceExt};
+use wgpu::util::DeviceExt;
 
 use crate::{canvas::model, util::texture};
 
@@ -40,21 +40,20 @@ pub async fn load_model(
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<model::Model> {
-    let path = std::path::Path::new(env!("OUT_DIR"))
-        .join("res")
-        .join(file_name);
+    let obj_text = load_string(file_name).await?;
+    let obj_cursor = Cursor::new(obj_text);
+    let mut obj_reader = BufReader::new(obj_cursor);
 
-    let (models, obj_materials) = tobj::load_obj_async(
-        path,
+    #[allow(deprecated)]
+    let (models, obj_materials) = tobj::load_obj_buf_async(
+        &mut obj_reader,
         &tobj::LoadOptions {
             single_index: true,
             triangulate: true,
             ..Default::default()
         },
         |p| async move {
-            let mat_text = load_string(&p).await.map_err(|e| {
-                tobj::LoadError::GenericFailure(format!("Failed to load material {}: {}", p, e))
-            })?;
+            let mat_text = load_string(&p).await.unwrap();
             tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
         },
     )
@@ -62,7 +61,7 @@ pub async fn load_model(
 
     let mut materials = Vec::new();
 
-    for m in obj_materials? .0 {
+    for m in obj_materials? {
         let diffuse_texture = load_texture(&m.diffuse_texture.unwrap(), device, queue).await?;
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,

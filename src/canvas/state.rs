@@ -11,8 +11,6 @@ use crate::{
 use wgpu::util::DeviceExt;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
-
 pub struct State {
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
@@ -310,14 +308,13 @@ impl State {
             multiview_mask: None,
         });
         render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-        render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
         render_pass.set_vertex_buffer(1, self.instance_controller.instance_buffer.slice(..));
 
         use model::DrawModel;
-        render_pass.draw_mesh_instanced(
-            &self.obj_model.meshes[0],
+        render_pass.draw_model_instanced(
+            &self.obj_model,
             0..self.instance_controller.instances.len() as u32,
+            &self.camera_bind_group,
         );
 
         drop(render_pass);

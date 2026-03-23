@@ -1,37 +1,44 @@
-// Vertex shader
+struct Uniforms {
+    resolution: vec2<f32>,
+    mouse: vec2<f32>,
+    time: f32,
+}
 
-
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) tex_coords: vec2<f32>,
-};
+@group(0) @binding(0) var<uniform> u: Uniforms;
 
 struct VertexOutput {
-	@builtin(position) clip_position: vec4<f32>,
-    @location(0) tex_coords: vec2<f32>,
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
 };
 
 @vertex
 fn vs_main(
-    model: VertexInput,
+    @builtin(vertex_index) vertex_index: u32,
 ) -> VertexOutput {
 
+    var pos = array<vec2<f32>, 3>(
+        vec2<f32>(-1.0, -1.0), // Bottom-left
+        vec2<f32>(3.0, -1.0), // Far bottom-right 
+        vec2<f32>(-1.0, 3.0)// Far top-left 
+    );
+
+    // Maps to 1x1 coordinate box, bottom-left origin
+    var uv = array<vec2<f32>, 3>(
+        vec2<f32>(0.0, 0.0), // Bottom-left
+        vec2<f32>(2.0, 0.0), // Maps right edge of screen to x=1.0
+        vec2<f32>(0.0, 2.0)// Maps top edge of screen to y=1.0
+    );
+
     var out: VertexOutput;
-    out.tex_coords = model.tex_coords;
-    out.clip_position = vec4<f32>(model.position, 1.0);
+    out.clip_position = vec4<f32>(pos[vertex_index], 0.0, 1.0);
+    out.uv = uv[vertex_index];
     return out;
 }
 
-@group(0) @binding(0)
-var t_diffuse: texture_2d<f32>;
-@group(0) @binding(1)
-var s_diffuse: sampler;
-
 @fragment
-fn fs_main(in: VertexOutput, @builtin(front_facing) is_front: bool) -> @location(0) vec4<f32> {
-    if (is_front) {
-        return textureSample(t_diffuse, s_diffuse, in.tex_coords);
-    } else {
-        return vec4<f32>(0.0, 0.0,0.0, 1.0);
-    }
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    let r = in.uv.x;
+    let g = in.uv.y * u.time;
+    let b = 0.5 + 0.5 * sin(u.time);
+    return vec4<f32>(r, g, b, 1.0);
 }

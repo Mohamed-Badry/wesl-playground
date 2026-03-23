@@ -3,14 +3,17 @@ use std::sync::Arc;
 use wgpu::util::DeviceExt;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
+use crate::canvas::uniforms;
+
 pub struct State {
+    pub window: Arc<Window>,
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     is_surface_configured: bool,
     render_pipeline: wgpu::RenderPipeline,
-    pub window: Arc<Window>,
+    uniforms: uniforms::Uniforms,
 }
 
 impl State {
@@ -64,10 +67,12 @@ impl State {
 
         let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/shader.wgsl"));
 
+        let uniforms = uniforms::Uniforms::new(&device, size.height as f32, size.width as f32);
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[],
+                bind_group_layouts: &[&uniforms.bind_group_layout],
                 immediate_size: 0,
             });
 
@@ -109,14 +114,17 @@ impl State {
             cache: None,
         });
 
+        
+
         Ok(Self {
+            window,
             surface,
             device,
             queue,
             config,
             is_surface_configured: false,
             render_pipeline,
-            window,
+            uniforms,
        })
     }
 
@@ -124,6 +132,7 @@ impl State {
         if width > 0 && height > 0 {
             self.config.width = width;
             self.config.height = height;
+            self.uniforms.data.update_resolution(width as f32, height as f32);
             self.surface.configure(&self.device, &self.config);
             self.is_surface_configured = true;
         }
@@ -169,6 +178,7 @@ impl State {
             multiview_mask: None,
         });
         render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &self.uniforms.bind_group, &[]);
 
 
         drop(render_pass);
@@ -190,11 +200,11 @@ impl State {
         };
     }
 
+    pub fn handle_mouse(&mut self, x: f32, y: f32) {
+        self.uniforms.data.update_mouse(x, y);
+    }
+
     pub fn update(&mut self) {
-        // self.queue.write_buffer(
-        //     self.uniform_buffer.as_ref().unwrap(),
-        //     0,
-        //     bytemuck::cast_slice(&[]),
-        // );
+        self.uniforms.update(&self.queue);
     }
 }

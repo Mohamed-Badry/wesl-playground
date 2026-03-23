@@ -2,6 +2,18 @@ use crate::{shader, uniforms};
 use std::sync::Arc;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
+const FALLBACK_SHADER: &str = r#"
+struct Uniforms { resolution: vec2<f32>, mouse: vec2<f32>, time: f32, }
+@group(0) @binding(0) var<uniform> u: Uniforms;
+@vertex fn vs_main(@builtin(vertex_index) v_idx: u32) -> @builtin(position) vec4<f32> {
+    var pos = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+    return vec4<f32>(pos[v_idx], 0.0, 1.0);
+}
+@fragment fn fs_main() -> @location(0) vec4<f32> {
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0); // Red screen means fallback loaded
+}
+"#;
+
 pub struct State {
     pub window: Arc<Window>,
     pub shader_controller: shader::ShaderController,
@@ -65,12 +77,25 @@ impl State {
 
         let shader_controller = shader::ShaderController::new("src/shaders")?;
 
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/cells.wgsl"));
+        let shader_source = if let Some(path) = shader_controller.shader_path.clone() {
+            std::fs::read_to_string(path).unwrap_or_else(|_| FALLBACK_SHADER.to_string())
+        } else {
+            FALLBACK_SHADER.to_string()
+        };
+
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Initial Shader"),
+            source: wgpu::ShaderSource::Wgsl(shader_source.into()),
+        });
 
         let uniforms = uniforms::Uniforms::new(&device, size.height as f32, size.width as f32);
 
-        let render_pipeline =
-            Self::build_render_pipeline(&device, &config, &uniforms.bind_group_layout, shader);
+        let render_pipeline = Self::build_render_pipeline(
+            &device,
+            &config,
+            &uniforms.bind_group_layout,
+            shader,
+        );
 
         Ok(Self {
             window,
@@ -205,6 +230,12 @@ impl State {
             (KeyCode::Escape, true) => {
                 event_loop.exit();
             }
+            (KeyCode::ArrowRight, true) => {
+                self.shader_controller.handle_playlist_next();
+            }
+            (KeyCode::ArrowLeft, true) => {
+                self.shader_controller.handle_playlist_prev();
+            }
             _ => {
                 println!(
                     "Key {:?} is {}",
@@ -217,6 +248,8 @@ impl State {
 
     fn hot_reload_shader(&mut self) {
         if let Some(path) = self.shader_controller.check_for_updates() {
+            dbg!(&path);
+            dbg!(&self.shader_controller.shader_path);
             match std::fs::read_to_string(&path) {
                 Ok(shader_source) => {
                     let shader = self
@@ -231,6 +264,8 @@ impl State {
                         &self.uniforms.bind_group_layout,
                         shader,
                     );
+                    println!("Hot Reloaded the shader: {}", path.to_str().unwrap());
+                    self.window.request_redraw();
                 }
                 Err(e) => eprintln!("Error reading shader file: {:?}", e),
             }

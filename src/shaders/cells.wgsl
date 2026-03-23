@@ -1,37 +1,35 @@
-struct VertexOutput {
-  @builtin(position) position: vec4<f32>,
-  @location(1) normal: vec3<f32>,
-  @location(2) uv: vec2<f32>,
-};
-
-struct Uniform {
-  model_matrix: mat4x4<f32>,
-  view_matrix: mat4x4<f32>,
-  projection_matrix: mat4x4<f32>,
-  normal_matrix: mat3x3<f32>,
-  resolution: vec2<f32>,
-  elapsedTime: f32, // in seconds
-};
-
-@group(0) @binding(0)
-var<uniform> unif: Uniform;
-
-@vertex
-fn vs_main(
-  @location(0) position: vec3<f32>,
-  @location(1) normal: vec3<f32>,
-  @location(2) uv: vec2<f32>,
-) -> VertexOutput {
-  var out: VertexOutput;
-  out.position = unif.projection_matrix * unif.view_matrix * unif.model_matrix * vec4<f32>(position, 1.0);
-  out.normal = normalize(unif.normal_matrix * normal);
-  out.uv = uv;
-  return out;
+struct Uniforms {
+    resolution: vec2<f32>,
+    mouse: vec2<f32>,
+    time: f32,
 }
 
-// ----------------------------------------------------
-// Translated GLSL Functions and Fragment Shader Below
-// ----------------------------------------------------
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+};
+
+@vertex
+fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
+    var pos = array<vec2<f32>, 3>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>(3.0, -1.0),
+        vec2<f32>(-1.0, 3.0)
+    );
+
+    var uv = array<vec2<f32>, 3>(
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(2.0, 0.0),
+        vec2<f32>(0.0, 2.0)
+    );
+
+    var out: VertexOutput;
+    out.clip_position = vec4<f32>(pos[in_vertex_index], 0.0, 1.0);
+    out.uv = uv[in_vertex_index];
+    return out;
+}
 
 fn rand(r: f32) -> f32 {
     return fract(sin(r * 12.9898) * 43758.5453);
@@ -39,36 +37,38 @@ fn rand(r: f32) -> f32 {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // in.position contains the fragment coordinates (equivalent to gl_FragCoord)
-    var st: vec2<f32> = in.position.xy / unif.resolution.xy;
-    st.x = st.x * (unif.resolution.x / unif.resolution.y);
+    var st = in.uv;
+    let aspect = u.resolution.x / u.resolution.y;
 
-    var color: vec3<f32> = vec3<f32>(0.0);
+    // Correct aspect ratio so distance fields don't stretch into ellipses
+    st.x = st.x * aspect;
 
     const TOTAL_POINTS: i32 = 100;
     var point_arr: array<vec2<f32>, 100>;
 
     for (var i: i32 = 0; i < TOTAL_POINTS - 1; i++) {
-        var r: vec2<f32> = vec2<f32>(f32(i) * 43893.32, f32(i) * 209320.0);
+        let r = vec2<f32>(f32(i) * 43893.32, f32(i) * 209320.0);
+
+        // Multiply point X by aspect ratio to spread them across the whole window
         point_arr[i] = vec2<f32>(
-            rand(r.x) + 0.6 * sin(unif.elapsedTime * rand(r.y)),
-            rand(r.y) + 0.6 * cos(unif.elapsedTime * rand(r.x))
+            (rand(r.x) + 0.6 * sin(u.time * rand(r.y))) * aspect,
+            rand(r.y) + 0.6 * cos(u.time * rand(r.x))
         );
     }
-    
-    // Fallback for u_mouse since it isn't in the Uniform struct.
-    // If you add `mouse: vec2<f32>` to the Uniform struct, change this to `unif.mouse`.
-    let u_mouse = vec2<f32>(0.0, 0.0); 
-    point_arr[TOTAL_POINTS - 1] = u_mouse / unif.resolution;
+
+    // Normalize Winit mouse (pixels -> UV space) and invert Y to match bottom-left origin
+    let mouse_norm = vec2<f32>(
+        (u.mouse.x / u.resolution.x) * aspect,
+        1.0 - (u.mouse.y / u.resolution.y)
+    );
+    point_arr[TOTAL_POINTS - 1] = mouse_norm;
 
     var m_dist: f32 = 1.0;
 
     for (var i: i32 = 0; i < TOTAL_POINTS; i++) {
-        var dist: f32 = distance(st, point_arr[i]);
+        let dist = distance(st, point_arr[i]);
         m_dist = min(m_dist, dist);
     }
 
-    color = color + vec3<f32>(m_dist);
-
-    return vec4<f32>(color, 1.0);
+    return vec4<f32>(vec3<f32>(m_dist), 1.0);
 }

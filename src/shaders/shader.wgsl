@@ -13,7 +13,7 @@ struct VertexOutput {
 
 @vertex
 fn vs_main(
-    @builtin(vertex_index) vertex_index: u32,
+    @builtin(vertex_index) in_vertex_index: u32,
 ) -> VertexOutput {
 
     var pos = array<vec2<f32>, 3>(
@@ -30,8 +30,8 @@ fn vs_main(
     );
 
     var out: VertexOutput;
-    out.clip_position = vec4<f32>(pos[vertex_index], 0.0, 1.0);
-    out.uv = uv[vertex_index];
+    out.clip_position = vec4<f32>(pos[in_vertex_index], 0.0, 1.0);
+    out.uv = uv[in_vertex_index];
     return out;
 }
 
@@ -40,5 +40,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let r = in.uv.x;
     let g = in.uv.y * u.time;
     let b = 0.5 + 0.5 * sin(u.time);
+
+    
+    
     return vec4<f32>(r, g, b, 1.0);
 }

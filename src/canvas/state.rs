@@ -65,7 +65,7 @@ impl State {
             desired_maximum_frame_latency: 2,
         };
 
-        let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/shader.wgsl"));
+        let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/cells.wgsl"));
 
         let uniforms = uniforms::Uniforms::new(&device, size.height as f32, size.width as f32);
 
@@ -179,6 +179,7 @@ impl State {
         });
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &self.uniforms.bind_group, &[]);
+        render_pass.draw(0..3, 0..1);
 
 
         drop(render_pass);

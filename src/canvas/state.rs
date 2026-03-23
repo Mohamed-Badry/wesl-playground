@@ -1,12 +1,13 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use wgpu::util::DeviceExt;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
-use crate::canvas::uniforms;
+use crate::canvas::{shader, uniforms};
 
 pub struct State {
     pub window: Arc<Window>,
+    pub shader_controller: shader::ShaderController,
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -65,18 +66,43 @@ impl State {
             desired_maximum_frame_latency: 2,
         };
 
+        let shader_controller = shader::ShaderController::new("src/shaders")?;  
+
         let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/cells.wgsl"));
 
         let uniforms = uniforms::Uniforms::new(&device, size.height as f32, size.width as f32);
 
+        let render_pipeline =
+            Self::build_render_pipeline(&device, &config, &uniforms.bind_group_layout, shader);
+
+        Ok(Self {
+            window,
+            shader_controller,
+            surface,
+            device,
+            queue,
+            config,
+            is_surface_configured: false,
+            render_pipeline,
+            uniforms,
+        })
+    }
+
+    fn build_render_pipeline(
+        device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
+        bind_group_layout: &wgpu::BindGroupLayout,
+        shader: wgpu::ShaderModule,
+    ) -> wgpu::RenderPipeline {
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&uniforms.bind_group_layout],
+                bind_group_layouts: &[bind_group_layout],
                 immediate_size: 0,
             });
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
@@ -112,27 +138,16 @@ impl State {
             },
             multiview_mask: None,
             cache: None,
-        });
-
-        
-
-        Ok(Self {
-            window,
-            surface,
-            device,
-            queue,
-            config,
-            is_surface_configured: false,
-            render_pipeline,
-            uniforms,
-       })
+        })
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
             self.config.width = width;
             self.config.height = height;
-            self.uniforms.data.update_resolution(width as f32, height as f32);
+            self.uniforms
+                .data
+                .update_resolution(width as f32, height as f32);
             self.surface.configure(&self.device, &self.config);
             self.is_surface_configured = true;
         }
@@ -181,7 +196,6 @@ impl State {
         render_pass.set_bind_group(0, &self.uniforms.bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
-
         drop(render_pass);
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -196,9 +210,33 @@ impl State {
                 event_loop.exit();
             }
             _ => {
-               println!("Key {:?} is {}", code, if is_pressed { "pressed" } else { "released" }); 
+                println!(
+                    "Key {:?} is {}",
+                    code,
+                    if is_pressed { "pressed" } else { "released" }
+                );
             }
         };
+    }
+
+    fn hot_reload_shader(&mut self) {
+        if let Some(path) = self.shader_controller.check_for_updates() {
+            match std::fs::read_to_string(&path) {
+                Ok(shader_source) => {
+                    let shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                        label: Some("Hot Reloaded Shader"),
+                        source: wgpu::ShaderSource::Wgsl(shader_source.into()),
+                    });
+                    self.render_pipeline = Self::build_render_pipeline(
+                        &self.device,
+                        &self.config,
+                        &self.uniforms.bind_group_layout,
+                        shader,
+                    );
+                }
+                Err(e) => eprintln!("Error reading shader file: {:?}", e),
+            }
+        }
     }
 
     pub fn handle_mouse(&mut self, x: f32, y: f32) {
@@ -206,6 +244,7 @@ impl State {
     }
 
     pub fn update(&mut self) {
+        self.hot_reload_shader();
         self.uniforms.update(&self.queue);
     }
 }

@@ -70,5 +70,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         m_dist = min(m_dist, dist);
     }
 
-    return vec4<f32>(vec3<f32>(m_dist), 1.0);
+    return vec4<f32>(vec3<f32>(m_dist)*vec3<f32>(0.5, 0.1, 0.4), 1.0);
 }

@@ -1,3 +1,6 @@
-mod canvas;
-mod util;
-pub use canvas::app::run;
+mod app;
+mod uniforms;
+mod state;
+mod shader;
+
+pub use app::run;

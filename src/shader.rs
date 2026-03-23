@@ -3,7 +3,7 @@ use std::path::Path;
 use notify_debouncer_mini::{
     DebounceEventResult, Debouncer, new_debouncer,
     notify::*,
-    notify::{RecommendedWatcher, RecursiveMode, Watcher},
+    notify::{RecommendedWatcher, RecursiveMode},
 };
 use std::sync::mpsc;
 use std::{path::PathBuf, time::Duration};

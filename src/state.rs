@@ -1,9 +1,6 @@
-use std::{path::Path, sync::Arc};
-
-use wgpu::util::DeviceExt;
+use crate::{shader, uniforms};
+use std::sync::Arc;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
-
-use crate::canvas::{shader, uniforms};
 
 pub struct State {
     pub window: Arc<Window>,
@@ -66,9 +63,9 @@ impl State {
             desired_maximum_frame_latency: 2,
         };
 
-        let shader_controller = shader::ShaderController::new("src/shaders")?;  
+        let shader_controller = shader::ShaderController::new("src/shaders")?;
 
-        let shader = device.create_shader_module(wgpu::include_wgsl!("../shaders/cells.wgsl"));
+        let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/cells.wgsl"));
 
         let uniforms = uniforms::Uniforms::new(&device, size.height as f32, size.width as f32);
 
@@ -94,7 +91,6 @@ impl State {
         bind_group_layout: &wgpu::BindGroupLayout,
         shader: wgpu::ShaderModule,
     ) -> wgpu::RenderPipeline {
-
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -223,10 +219,12 @@ impl State {
         if let Some(path) = self.shader_controller.check_for_updates() {
             match std::fs::read_to_string(&path) {
                 Ok(shader_source) => {
-                    let shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-                        label: Some("Hot Reloaded Shader"),
-                        source: wgpu::ShaderSource::Wgsl(shader_source.into()),
-                    });
+                    let shader = self
+                        .device
+                        .create_shader_module(wgpu::ShaderModuleDescriptor {
+                            label: Some("Hot Reloaded Shader"),
+                            source: wgpu::ShaderSource::Wgsl(shader_source.into()),
+                        });
                     self.render_pipeline = Self::build_render_pipeline(
                         &self.device,
                         &self.config,

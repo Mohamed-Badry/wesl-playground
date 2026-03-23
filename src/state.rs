@@ -90,12 +90,8 @@ impl State {
 
         let uniforms = uniforms::Uniforms::new(&device, size.height as f32, size.width as f32);
 
-        let render_pipeline = Self::build_render_pipeline(
-            &device,
-            &config,
-            &uniforms.bind_group_layout,
-            shader,
-        );
+        let render_pipeline =
+            Self::build_render_pipeline(&device, &config, &uniforms.bind_group_layout, shader);
 
         Ok(Self {
             window,
@@ -108,6 +104,22 @@ impl State {
             render_pipeline,
             uniforms,
         })
+    }
+
+    fn replace_pipeline_from_source(&mut self, shader_source: &str) {
+        let shader = self
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("Hot Reloaded Shader"),
+                source: wgpu::ShaderSource::Wgsl(shader_source.into()),
+            });
+
+        self.render_pipeline = Self::build_render_pipeline(
+            &self.device,
+            &self.config,
+            &self.uniforms.bind_group_layout,
+            shader,
+        );
     }
 
     fn build_render_pipeline(
@@ -232,9 +244,23 @@ impl State {
             }
             (KeyCode::ArrowRight, true) => {
                 self.shader_controller.handle_playlist_next();
+                if let Some(path) = &self.shader_controller.shader_path {
+                    if let Ok(shader_source) = std::fs::read_to_string(path) {
+                        self.replace_pipeline_from_source(&shader_source);
+                    } else {
+                        eprint!("Failed to read shader file: {:?}", path);
+                    }
+                };
             }
             (KeyCode::ArrowLeft, true) => {
                 self.shader_controller.handle_playlist_prev();
+                if let Some(path) = &self.shader_controller.shader_path {
+                    if let Ok(shader_source) = std::fs::read_to_string(path) {
+                        self.replace_pipeline_from_source(&shader_source);
+                    } else {
+                        eprint!("Failed to read shader file: {:?}", path);
+                    }
+                };
             }
             _ => {
                 println!(
@@ -248,22 +274,9 @@ impl State {
 
     fn hot_reload_shader(&mut self) {
         if let Some(path) = self.shader_controller.check_for_updates() {
-            dbg!(&path);
-            dbg!(&self.shader_controller.shader_path);
             match std::fs::read_to_string(&path) {
                 Ok(shader_source) => {
-                    let shader = self
-                        .device
-                        .create_shader_module(wgpu::ShaderModuleDescriptor {
-                            label: Some("Hot Reloaded Shader"),
-                            source: wgpu::ShaderSource::Wgsl(shader_source.into()),
-                        });
-                    self.render_pipeline = Self::build_render_pipeline(
-                        &self.device,
-                        &self.config,
-                        &self.uniforms.bind_group_layout,
-                        shader,
-                    );
+                    self.replace_pipeline_from_source(&shader_source);
                     println!("Hot Reloaded the shader: {}", path.to_str().unwrap());
                     self.window.request_redraw();
                 }

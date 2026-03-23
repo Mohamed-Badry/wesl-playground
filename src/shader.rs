@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fs, path::Path, time::SystemTime};
 // need a controller for shader file loading and hot reloading from a directory, and input handler to switch between shaders.
 use notify_debouncer_mini::{
     DebounceEventResult, Debouncer, new_debouncer,
@@ -105,6 +105,7 @@ pub struct ShaderController {
     watcher: ShaderWatcher,
     pub playlist: ShaderPlaylist,
     pub shader_path: Option<PathBuf>,
+    pub last_modified: Option<SystemTime>,
 }
 
 impl ShaderController {
@@ -113,42 +114,52 @@ impl ShaderController {
             watcher: ShaderWatcher::new(&dir)?,
             playlist: ShaderPlaylist::new(&dir)?,
             shader_path: None,
+            last_modified: None,
         })
     }
 
     pub fn check_for_updates(&mut self) -> Option<PathBuf> {
-        let current_path = self.playlist.current().unwrap();
-        let mut should_reload = false;
+        let mut hot_reloaded_path = None;
 
         while let Ok(path) = self.watcher.reciever.try_recv() {
             if path.extension().is_some_and(|ext| ext == "wgsl") {
-                if path.file_name() == current_path.file_name() {
-                    should_reload = true;
+                if let Some(current_path) = self.playlist.current() {
+                    if path.file_name() == current_path.file_name() {
+                        hot_reloaded_path = Some(path);
+                    }
                 }
             }
         }
-        if should_reload {
-            Some(current_path.clone())
-        } else {
-            None
+
+        if let Some(path) = hot_reloaded_path {
+            if let Ok(metadata) = std::fs::metadata(&path) {
+                let new_time = metadata.modified().ok();
+
+                if new_time != self.last_modified {
+                    self.last_modified = new_time;
+                    return Some(path);
+                }
+            }
         }
+
+        None
     }
 
     pub fn handle_playlist_next(&mut self) {
-        let playlist = &mut self.playlist;
-        if playlist.next() {
-            self.shader_path = playlist.current().cloned();
+        if self.playlist.next() {
+            if let Some(path) = self.playlist.current() {
+                self.shader_path = Some(path.clone());
+                self.last_modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+            }
         }
-        dbg!(&self.shader_path);
-        dbg!(&self.playlist);
     }
 
     pub fn handle_playlist_prev(&mut self) {
-        let playlist = &mut self.playlist;
-        if playlist.prev() {
-            self.shader_path = playlist.current().cloned();
+        if self.playlist.prev() {
+            if let Some(path) = self.playlist.current() {
+                self.shader_path = Some(path.clone());
+                self.last_modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+            }
         }
-        dbg!(&self.shader_path);
-        dbg!(&self.playlist);
     }
 }

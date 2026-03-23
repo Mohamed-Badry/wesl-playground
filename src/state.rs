@@ -2,17 +2,7 @@ use crate::{shader, uniforms};
 use std::sync::Arc;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
-const FALLBACK_SHADER: &str = r#"
-struct Uniforms { resolution: vec2<f32>, mouse: vec2<f32>, time: f32, }
-@group(0) @binding(0) var<uniform> u: Uniforms;
-@vertex fn vs_main(@builtin(vertex_index) v_idx: u32) -> @builtin(position) vec4<f32> {
-    var pos = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
-    return vec4<f32>(pos[v_idx], 0.0, 1.0);
-}
-@fragment fn fs_main() -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0, 0.0, 0.0, 1.0); // Red screen means fallback loaded
-}
-"#;
+const SHADER_DIR: &str = "src/shaders";
 
 pub struct State {
     pub window: Arc<Window>,
@@ -75,13 +65,9 @@ impl State {
             desired_maximum_frame_latency: 2,
         };
 
-        let shader_controller = shader::ShaderController::new("src/shaders")?;
+        let shader_controller = shader::ShaderController::new(SHADER_DIR)?;
 
-        let shader_source = if let Some(path) = shader_controller.shader_path.clone() {
-            std::fs::read_to_string(path).unwrap_or_else(|_| FALLBACK_SHADER.to_string())
-        } else {
-            FALLBACK_SHADER.to_string()
-        };
+        let shader_source = shader_controller.current_shader_source();
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Initial Shader"),
@@ -212,10 +198,10 @@ impl State {
                 depth_slice: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
-                        a: 0.3,
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 1.0,
                     }),
                     store: wgpu::StoreOp::Store,
                 },
@@ -242,32 +228,23 @@ impl State {
             (KeyCode::Escape, true) => {
                 event_loop.exit();
             }
-            (KeyCode::ArrowRight, true) => {
+            (KeyCode::ArrowRight, true) | (KeyCode::KeyL, true) => {
                 self.shader_controller.handle_playlist_next();
-                if let Some(path) = &self.shader_controller.shader_path {
-                    if let Ok(shader_source) = std::fs::read_to_string(path) {
-                        self.replace_pipeline_from_source(&shader_source);
-                    } else {
-                        eprint!("Failed to read shader file: {:?}", path);
-                    }
-                };
+                let shader_source= self.shader_controller.current_shader_source();
+                self.replace_pipeline_from_source(&shader_source);
+
             }
-            (KeyCode::ArrowLeft, true) => {
+            (KeyCode::ArrowLeft, true) | (KeyCode::KeyH, true) => {
                 self.shader_controller.handle_playlist_prev();
-                if let Some(path) = &self.shader_controller.shader_path {
-                    if let Ok(shader_source) = std::fs::read_to_string(path) {
-                        self.replace_pipeline_from_source(&shader_source);
-                    } else {
-                        eprint!("Failed to read shader file: {:?}", path);
-                    }
-                };
+                let shader_source= self.shader_controller.current_shader_source();
+                self.replace_pipeline_from_source(&shader_source);
             }
             _ => {
-                println!(
-                    "Key {:?} is {}",
-                    code,
-                    if is_pressed { "pressed" } else { "released" }
-                );
+                // println!(
+                //     "Key {:?} is {}",
+                //     code,
+                //     if is_pressed { "pressed" } else { "released" }
+                // );
             }
         };
     }

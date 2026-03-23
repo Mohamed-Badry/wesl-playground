@@ -7,6 +7,19 @@ use notify_debouncer_mini::{
 };
 use std::sync::mpsc;
 use std::{path::PathBuf, time::Duration};
+use wesl::Wesl;
+
+pub const FALLBACK_SHADER: &str = r#"
+struct Uniforms { resolution: vec2<f32>, mouse: vec2<f32>, time: f32, }
+@group(0) @binding(0) var<uniform> u: Uniforms;
+@vertex fn vs_main(@builtin(vertex_index) v_idx: u32) -> @builtin(position) vec4<f32> {
+    var pos = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+    return vec4<f32>(pos[v_idx], 0.0, 1.0);
+}
+@fragment fn fs_main() -> @location(0) vec4<f32> {
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0); // Red screen means fallback loaded
+}
+"#;
 
 struct ShaderWatcher {
     _debouncer: Debouncer<RecommendedWatcher>,
@@ -64,7 +77,7 @@ impl ShaderPlaylist {
         if let Ok(entries) = fs::read_dir(&self.dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.is_file() && path.extension().is_some_and(|ext| ext == "wgsl") {
+                if path.is_file() && path.extension().is_some_and(|ext| ext == "wgsl" || ext == "wesl") {
                     self.files.push(path);
                 }
             }
@@ -103,7 +116,7 @@ impl ShaderPlaylist {
 
 pub struct ShaderController {
     watcher: ShaderWatcher,
-    pub playlist: ShaderPlaylist,
+    playlist: ShaderPlaylist,
     pub shader_path: Option<PathBuf>,
     pub last_modified: Option<SystemTime>,
 }
@@ -118,11 +131,31 @@ impl ShaderController {
         })
     }
 
+    pub fn current_shader_source(&self) -> String {
+        if let Some(path) = self.shader_path.clone() {
+            let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("main");
+
+            let module_path = format!("package::{}", file_stem);
+            let compiler = Wesl::new(&self.playlist.dir);
+
+            match compiler.compile(&module_path.parse().unwrap()) {
+                Ok(compiled_module) => compiled_module.to_string(),
+                Err(e) => {
+                    eprintln!("WESL Compilation Error in {}: {}", path.display(), e);
+                    FALLBACK_SHADER.to_string()
+                }
+            }
+            // std::fs::read_to_string(path).unwrap_or_else(|_| FALLBACK_SHADER.to_string())
+        } else {
+            FALLBACK_SHADER.to_string()
+        }
+    }
+
     pub fn check_for_updates(&mut self) -> Option<PathBuf> {
         let mut hot_reloaded_path = None;
 
         while let Ok(path) = self.watcher.reciever.try_recv() {
-            if path.extension().is_some_and(|ext| ext == "wgsl") {
+            if path.extension().is_some_and(|ext| ext == "wgsl" || ext == "wesl") {
                 if let Some(current_path) = self.playlist.current() {
                     if path.file_name() == current_path.file_name() {
                         hot_reloaded_path = Some(path);

@@ -239,7 +239,7 @@ impl State {
 
     pub fn handle_key(&mut self, event_loop: &ActiveEventLoop, code: KeyCode, is_pressed: bool) {
         match (code, is_pressed) {
-            (KeyCode::Escape, true) => {
+            (KeyCode::Escape, true) | (KeyCode::KeyQ, true)=> {
                 event_loop.exit();
             }
             (KeyCode::ArrowRight, true) | (KeyCode::KeyL, true) => {

@@ -27,8 +27,8 @@ impl UniformData {
         self.mouse = [x, y];
     }
 
-    pub fn update_time(&mut self, delta: f32) {
-        self.time += delta;
+    pub fn update_time(&mut self, new_time: f32) {
+        self.time = new_time;
     }
 }
 
@@ -37,10 +37,13 @@ pub struct Uniforms {
     pub buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
     pub bind_group_layout: wgpu::BindGroupLayout,
+    start_time: std::time::Instant,
 }
 
 impl Uniforms {
     pub fn new(device: &wgpu::Device, height: f32, width: f32) -> Self {
+        let start_time = std::time::Instant::now();
+
         let data = UniformData::new(height, width);
 
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -77,12 +80,17 @@ impl Uniforms {
             buffer,
             bind_group,
             bind_group_layout,
+            start_time,
         }
     }
 
+    pub fn set_start_time(&mut self, start_time: std::time::Instant) {
+        self.start_time = start_time;
+    }
+
     pub fn update(&mut self, queue: &wgpu::Queue) {
-        self.data.update_time(0.016);
-        // dbg!("Updating uniforms: {:?}", self.data);
+        let elapsed_time = self.start_time.elapsed();
+        self.data.update_time(elapsed_time.as_secs_f32());
         queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.data]));
     }
 }

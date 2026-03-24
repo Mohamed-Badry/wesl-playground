@@ -246,12 +246,15 @@ impl State {
                 self.shader_controller.handle_playlist_next();
                 if let Some(shader_source) = self.shader_controller.get_shader_source() {
                     self.replace_pipeline_from_source(&shader_source);
+                    self.uniforms.set_start_time(std::time::Instant::now());
+                    
                 };
             }
             (KeyCode::ArrowLeft, true) | (KeyCode::KeyH, true) => {
                 self.shader_controller.handle_playlist_prev();
                 if let Some(shader_source) = self.shader_controller.get_shader_source() {
-                    self.replace_pipeline_from_source(&shader_source)
+                    self.replace_pipeline_from_source(&shader_source);
+                    self.uniforms.set_start_time(std::time::Instant::now());
                 };
             }
             _ => {

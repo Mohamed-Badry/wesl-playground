@@ -1,4 +1,6 @@
-use crate::{shader, uniforms};
+use crate::{
+    shader,uniforms,
+};
 use std::sync::Arc;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
@@ -67,7 +69,9 @@ impl State {
 
         let shader_controller = shader::ShaderController::new(SHADER_DIR)?;
 
-        let shader_source = shader_controller.current_shader_source();
+        let shader_source = shader_controller
+            .get_shader_source()
+            .expect("Expected a valid shader source.");
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Initial Shader"),
@@ -93,6 +97,8 @@ impl State {
     }
 
     fn replace_pipeline_from_source(&mut self, shader_source: &str) {
+        let error_scope = self.device.push_error_scope(wgpu::ErrorFilter::Validation);
+
         let shader = self
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -100,12 +106,26 @@ impl State {
                 source: wgpu::ShaderSource::Wgsl(shader_source.into()),
             });
 
-        self.render_pipeline = Self::build_render_pipeline(
+        let new_pipeline = Self::build_render_pipeline(
             &self.device,
             &self.config,
             &self.uniforms.bind_group_layout,
             shader,
         );
+
+        let error_future = error_scope.pop();
+
+        let _ = self.device.poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
+
+        if let Some(wgpu_error) = pollster::block_on(error_future) {
+            eprintln!("WGPU Validation Error:\n{}", wgpu_error);
+            return;
+        }
+
+        self.render_pipeline = new_pipeline;
     }
 
     fn build_render_pipeline(
@@ -150,11 +170,7 @@ impl State {
                 conservative: false,
             },
             depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
+            multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
         })
@@ -230,14 +246,15 @@ impl State {
             }
             (KeyCode::ArrowRight, true) | (KeyCode::KeyL, true) => {
                 self.shader_controller.handle_playlist_next();
-                let shader_source= self.shader_controller.current_shader_source();
-                self.replace_pipeline_from_source(&shader_source);
-
+                if let Some(shader_source) = self.shader_controller.get_shader_source() {
+                    self.replace_pipeline_from_source(&shader_source);
+                };
             }
             (KeyCode::ArrowLeft, true) | (KeyCode::KeyH, true) => {
                 self.shader_controller.handle_playlist_prev();
-                let shader_source= self.shader_controller.current_shader_source();
-                self.replace_pipeline_from_source(&shader_source);
+                if let Some(shader_source) = self.shader_controller.get_shader_source() {
+                    self.replace_pipeline_from_source(&shader_source)
+                };
             }
             _ => {
                 // println!(

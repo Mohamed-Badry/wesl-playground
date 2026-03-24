@@ -21,6 +21,129 @@ struct Uniforms { resolution: vec2<f32>, mouse: vec2<f32>, time: f32, }
 }
 "#;
 
+pub enum ShaderLoadResult {
+    Success(String),
+    CompileError,
+    FileError,
+}
+
+pub struct ShaderController {
+    watcher: ShaderWatcher,
+    playlist: ShaderPlaylist,
+    pub shader_path: Option<PathBuf>,
+    pub last_modified: Option<SystemTime>,
+}
+
+impl ShaderController {
+    pub fn new(dir: impl AsRef<Path>) -> Result<Self> {
+        Ok(Self {
+            watcher: ShaderWatcher::new(&dir)?,
+            playlist: ShaderPlaylist::new(&dir)?,
+            shader_path: None,
+            last_modified: None,
+        })
+    }
+
+    pub  fn get_shader_source(&self) -> Option<String> {
+        match self.current_shader_source() {
+            ShaderLoadResult::Success(source) => Some(source),
+            ShaderLoadResult::CompileError => None,
+            ShaderLoadResult::FileError => Some(FALLBACK_SHADER.to_string()),
+        }
+    } 
+
+    fn current_shader_source(&self) -> ShaderLoadResult {
+
+        println!("Loading shader from file: {:?}", &self.shader_path);
+
+        let Some(path) = self.shader_path.as_ref() else {
+            return  ShaderLoadResult::FileError;
+        };
+
+        let Some(file_stem) = path.file_stem().and_then(|s| s.to_str()) else {
+            return ShaderLoadResult::FileError;
+        };
+
+        let module_path = format!("package::{}", file_stem);
+
+        let Ok(parsed_path) = &module_path.parse() else {
+            eprintln!("Invalid WESL module path: {module_path}. Use underscores, not hyphens.");
+            return ShaderLoadResult::FileError;
+        };
+
+        let compiler = Wesl::new(&self.playlist.dir);
+
+
+        match compiler.compile(parsed_path) {
+            Ok(compiled_module) => {
+                let wgsl_code = compiled_module.to_string();
+
+                match wgpu::naga::front::wgsl::parse_str(&wgsl_code) {
+                    Ok(_) => {
+                        ShaderLoadResult::Success(wgsl_code.to_string()) 
+                    },
+                    Err(e) => {
+                        println!("WGSL Syntax Error in {}: {:?}", path.display(), e);
+                        ShaderLoadResult::CompileError
+                    }
+                } 
+            },
+            Err(e) => {
+                eprintln!("WESL Compilation Error in {}: {}", path.display(), e);
+                ShaderLoadResult::CompileError
+            },
+    }
+}
+
+    pub fn check_for_updates(&mut self) -> Option<PathBuf> {
+        let mut hot_reloaded_path = None;
+
+        while let Ok(path) = self.watcher.reciever.try_recv() {
+            if path
+                .extension()
+                .is_some_and(|ext| ext == "wgsl" || ext == "wesl")
+            {
+                if let Some(current_path) = self.playlist.current() {
+                    if path.file_name() == current_path.file_name() {
+                        hot_reloaded_path = Some(path);
+                    }
+                }
+            }
+        }
+
+        if let Some(path) = hot_reloaded_path {
+            if let Ok(metadata) = std::fs::metadata(&path) {
+                let new_time = metadata.modified().ok();
+
+                if new_time != self.last_modified {
+                    self.last_modified = new_time;
+                    return Some(path);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn handle_playlist_next(&mut self) {
+        if self.playlist.next() {
+            if let Some(path) = self.playlist.current() {
+                self.shader_path = Some(path.clone());
+                self.last_modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+            }
+        }
+    }
+
+    pub fn handle_playlist_prev(&mut self) {
+        if self.playlist.prev() {
+            if let Some(path) = self.playlist.current() {
+                self.shader_path = Some(path.clone());
+                self.last_modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
+            }
+        }
+    }
+}
+
 struct ShaderWatcher {
     _debouncer: Debouncer<RecommendedWatcher>,
     reciever: mpsc::Receiver<PathBuf>,
@@ -77,7 +200,11 @@ impl ShaderPlaylist {
         if let Ok(entries) = fs::read_dir(&self.dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.is_file() && path.extension().is_some_and(|ext| ext == "wgsl" || ext == "wesl") {
+                if path.is_file()
+                    && path
+                        .extension()
+                        .is_some_and(|ext| ext == "wgsl" || ext == "wesl")
+                {
                     self.files.push(path);
                 }
             }
@@ -111,88 +238,5 @@ impl ShaderPlaylist {
             self.current_index -= 1;
         }
         true
-    }
-}
-
-pub struct ShaderController {
-    watcher: ShaderWatcher,
-    playlist: ShaderPlaylist,
-    pub shader_path: Option<PathBuf>,
-    pub last_modified: Option<SystemTime>,
-}
-
-impl ShaderController {
-    pub fn new(dir: impl AsRef<Path>) -> Result<Self> {
-        Ok(Self {
-            watcher: ShaderWatcher::new(&dir)?,
-            playlist: ShaderPlaylist::new(&dir)?,
-            shader_path: None,
-            last_modified: None,
-        })
-    }
-
-    pub fn current_shader_source(&self) -> String {
-        if let Some(path) = self.shader_path.clone() {
-            let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("main");
-
-            let module_path = format!("package::{}", file_stem);
-            let compiler = Wesl::new(&self.playlist.dir);
-
-            match compiler.compile(&module_path.parse().unwrap()) {
-                Ok(compiled_module) => compiled_module.to_string(),
-                Err(e) => {
-                    eprintln!("WESL Compilation Error in {}: {}", path.display(), e);
-                    FALLBACK_SHADER.to_string()
-                }
-            }
-            // std::fs::read_to_string(path).unwrap_or_else(|_| FALLBACK_SHADER.to_string())
-        } else {
-            FALLBACK_SHADER.to_string()
-        }
-    }
-
-    pub fn check_for_updates(&mut self) -> Option<PathBuf> {
-        let mut hot_reloaded_path = None;
-
-        while let Ok(path) = self.watcher.reciever.try_recv() {
-            if path.extension().is_some_and(|ext| ext == "wgsl" || ext == "wesl") {
-                if let Some(current_path) = self.playlist.current() {
-                    if path.file_name() == current_path.file_name() {
-                        hot_reloaded_path = Some(path);
-                    }
-                }
-            }
-        }
-
-        if let Some(path) = hot_reloaded_path {
-            if let Ok(metadata) = std::fs::metadata(&path) {
-                let new_time = metadata.modified().ok();
-
-                if new_time != self.last_modified {
-                    self.last_modified = new_time;
-                    return Some(path);
-                }
-            }
-        }
-
-        None
-    }
-
-    pub fn handle_playlist_next(&mut self) {
-        if self.playlist.next() {
-            if let Some(path) = self.playlist.current() {
-                self.shader_path = Some(path.clone());
-                self.last_modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
-            }
-        }
-    }
-
-    pub fn handle_playlist_prev(&mut self) {
-        if self.playlist.prev() {
-            if let Some(path) = self.playlist.current() {
-                self.shader_path = Some(path.clone());
-                self.last_modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
-            }
-        }
     }
 }

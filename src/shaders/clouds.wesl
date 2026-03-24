@@ -32,15 +32,13 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
 }
 
 fn rand(r: f32) -> f32 {
-    return fract(sin(r * 12.9898) * 437.5453);
+    return fract(sin(r * 12.988) * 47.543);
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var st = in.uv;
     let aspect = u.resolution.x / u.resolution.y;
-    
-    // Correct aspect ratio so distance fields don't stretch into ellipses
     st.x = st.x * aspect;
 
     var color = vec3f(.0);
@@ -58,14 +56,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         );
     }
 
-    // Normalize Winit mouse (pixels -> UV space) and invert Y to match bottom-left origin
-    let mouse_norm = vec2<f32>(
-        (u.mouse.x / u.resolution.x) * aspect,
-        1.0 - (u.mouse.y / u.resolution.y)
-    );
-    point_arr[TOTAL_POINTS - 1] = mouse_norm;
+    point_arr[TOTAL_POINTS - 1] = u.mouse;
 
-    var m_dist: f32 = 1.0;
+    var m_dist: f32 = .5;
 
     for (var i: i32 = 0; i < TOTAL_POINTS; i++) {
         let dist = distance(st, point_arr[i]);

@@ -239,7 +239,7 @@ impl State {
 
     pub fn handle_key(&mut self, event_loop: &ActiveEventLoop, code: KeyCode, is_pressed: bool) {
         match (code, is_pressed) {
-            (KeyCode::Escape, true) | (KeyCode::KeyQ, true)=> {
+            (KeyCode::Escape, true) | (KeyCode::KeyQ, true) => {
                 event_loop.exit();
             }
             (KeyCode::ArrowRight, true) | (KeyCode::KeyL, true) => {
@@ -247,7 +247,6 @@ impl State {
                 if let Some(shader_source) = self.shader_controller.get_shader_source() {
                     self.replace_pipeline_from_source(&shader_source);
                     self.uniforms.set_start_time(std::time::Instant::now());
-                    
                 };
             }
             (KeyCode::ArrowLeft, true) | (KeyCode::KeyH, true) => {
@@ -273,6 +272,7 @@ impl State {
                 Ok(shader_source) => {
                     self.replace_pipeline_from_source(&shader_source);
                     println!("Hot Reloaded the shader: {}", path.display());
+                    self.uniforms.set_start_time(std::time::Instant::now());
                     self.window.request_redraw();
                 }
                 Err(e) => eprintln!("Error reading shader file: {:?}", e),
@@ -281,7 +281,17 @@ impl State {
     }
 
     pub fn handle_mouse(&mut self, x: f32, y: f32) {
-        self.uniforms.data.update_mouse(x, y);
+        // normalize mouse math to match wgsl and update the mouse uniform
+        let size = self.window.inner_size();
+
+        let width = size.width as f32;
+        let height = size.height as f32;
+        let aspect = width / height;
+
+        let norm_x = (x / width) * aspect;
+        let norm_y = 1.0 - (y / height);
+
+        self.uniforms.data.update_mouse(norm_x, norm_y);
     }
 
     pub fn update(&mut self) {

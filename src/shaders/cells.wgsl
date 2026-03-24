@@ -39,9 +39,7 @@ fn rand(r: f32) -> f32 {
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var st = in.uv;
     let aspect = u.resolution.x / u.resolution.y;
-    
-    // Correct aspect ratio so distance fields don't stretch into ellipses
-    // st.x = st.x * aspect;
+    st.x = st.x * aspect;
 
     var color = vec3f(.0);
 
@@ -57,13 +55,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             rand(r.y) + 0.6 * cos(u.time * rand(r.x))
         );
     }
-
-    // Normalize Winit mouse (pixels -> UV space) and invert Y to match bottom-left origin
-    let mouse_norm = vec2<f32>(
-        (u.mouse.x / u.resolution.x) * aspect,
-        1.0 - (u.mouse.y / u.resolution.y)
-    );
-    point_arr[TOTAL_POINTS - 1] = mouse_norm;
+    point_arr[TOTAL_POINTS - 1] = u.mouse;
 
     var m_dist: f32 = 1.0;
 

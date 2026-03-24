@@ -1,6 +1,4 @@
-use crate::{
-    shader,uniforms,
-};
+use crate::{shader, uniforms};
 use std::sync::Arc;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
@@ -271,7 +269,7 @@ impl State {
             match std::fs::read_to_string(&path) {
                 Ok(shader_source) => {
                     self.replace_pipeline_from_source(&shader_source);
-                    println!("Hot Reloaded the shader: {}", path.to_str().unwrap());
+                    println!("Hot Reloaded the shader: {}", path.display());
                     self.window.request_redraw();
                 }
                 Err(e) => eprintln!("Error reading shader file: {:?}", e),

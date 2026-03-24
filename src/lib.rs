@@ -1,6 +1,6 @@
 mod app;
-mod uniforms;
-mod state;
 mod shader;
+mod state;
+mod uniforms;
 
 pub use app::run;

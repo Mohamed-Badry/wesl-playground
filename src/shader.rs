@@ -44,20 +44,19 @@ impl ShaderController {
         })
     }
 
-    pub  fn get_shader_source(&self) -> Option<String> {
+    pub fn get_shader_source(&self) -> Option<String> {
         match self.current_shader_source() {
             ShaderLoadResult::Success(source) => Some(source),
             ShaderLoadResult::CompileError => None,
             ShaderLoadResult::FileError => Some(FALLBACK_SHADER.to_string()),
         }
-    } 
+    }
 
     fn current_shader_source(&self) -> ShaderLoadResult {
-
         println!("Loading shader from file: {:?}", &self.shader_path);
 
         let Some(path) = self.shader_path.as_ref() else {
-            return  ShaderLoadResult::FileError;
+            return ShaderLoadResult::FileError;
         };
 
         let Some(file_stem) = path.file_stem().and_then(|s| s.to_str()) else {
@@ -73,27 +72,24 @@ impl ShaderController {
 
         let compiler = Wesl::new(&self.playlist.dir);
 
-
         match compiler.compile(parsed_path) {
             Ok(compiled_module) => {
                 let wgsl_code = compiled_module.to_string();
 
                 match wgpu::naga::front::wgsl::parse_str(&wgsl_code) {
-                    Ok(_) => {
-                        ShaderLoadResult::Success(wgsl_code.to_string()) 
-                    },
+                    Ok(_) => ShaderLoadResult::Success(wgsl_code.to_string()),
                     Err(e) => {
                         println!("WGSL Syntax Error in {}: {:?}", path.display(), e);
                         ShaderLoadResult::CompileError
                     }
-                } 
-            },
+                }
+            }
             Err(e) => {
                 eprintln!("WESL Compilation Error in {}: {}", path.display(), e);
                 ShaderLoadResult::CompileError
-            },
+            }
+        }
     }
-}
 
     pub fn check_for_updates(&mut self) -> Option<PathBuf> {
         let mut hot_reloaded_path = None;
@@ -197,16 +193,21 @@ impl ShaderPlaylist {
 
     fn refresh(&mut self) {
         self.files.clear();
-        if let Ok(entries) = fs::read_dir(&self.dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file()
-                    && path
-                        .extension()
-                        .is_some_and(|ext| ext == "wgsl" || ext == "wesl")
-                {
-                    self.files.push(path);
+        match fs::read_dir(&self.dir) {
+            Ok(entries) => {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file()
+                        && path
+                            .extension()
+                            .is_some_and(|ext| ext == "wgsl" || ext == "wesl")
+                    {
+                        self.files.push(path);
+                    }
                 }
+            }
+            Err(_) => {
+                eprintln!("Error reading directory: {}", self.dir.display());
             }
         }
         self.files.sort();

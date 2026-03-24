@@ -15,7 +15,7 @@ impl UniformData {
             resolution: [width, height],
             mouse: [width / 2.0, height / 2.0],
             time: 0.0,
-            _padding: [0.0;3],
+            _padding: [0.0; 3],
         }
     }
 
@@ -30,7 +30,6 @@ impl UniformData {
     pub fn update_time(&mut self, delta: f32) {
         self.time += delta;
     }
-
 }
 
 pub struct Uniforms {
@@ -50,20 +49,19 @@ impl Uniforms {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Uniform Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Uniform Bind Group Layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Uniform Bind Group"),
@@ -86,5 +84,20 @@ impl Uniforms {
         self.data.update_time(0.016);
         // dbg!("Updating uniforms: {:?}", self.data);
         queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.data]));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Check if UniformData size is a multiple of 16
+    #[test]
+    fn uniform_size_check() {
+        assert_eq!(
+            std::mem::size_of::<UniformData>() % 16,
+            0,
+            "UnfiromData size is not a multiple of 16"
+        );
     }
 }

@@ -36,10 +36,14 @@ pub struct ShaderController {
 
 impl ShaderController {
     pub fn new(dir: impl AsRef<Path>) -> Result<Self> {
+
+        let shader_playlist = ShaderPlaylist::new(&dir)?;
+        let first_shader = shader_playlist.current().cloned();
+
         Ok(Self {
             watcher: ShaderWatcher::new(&dir)?,
-            playlist: ShaderPlaylist::new(&dir)?,
-            shader_path: None,
+            playlist: shader_playlist,
+            shader_path: first_shader.or(None),
             last_modified: None,
         })
     }

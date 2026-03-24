@@ -6,7 +6,7 @@ pub struct UniformData {
     resolution: [f32; 2],
     mouse: [f32; 2],
     time: f32,
-    _padding: f32, // Padding to make the size a multiple of 16 bytes
+    _padding: [f32; 3], // Padding to make the size a multiple of 16 bytes
 }
 
 impl UniformData {
@@ -15,7 +15,7 @@ impl UniformData {
             resolution: [width, height],
             mouse: [width / 2.0, height / 2.0],
             time: 0.0,
-            _padding: 0.0,
+            _padding: [0.0;3],
         }
     }
 

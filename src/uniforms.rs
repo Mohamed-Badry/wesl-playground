@@ -10,7 +10,7 @@ pub struct UniformData {
 }
 
 impl UniformData {
-    pub fn new(height: f32, width: f32) -> Self {
+    pub fn new(width: f32, height: f32) -> Self {
         Self {
             resolution: [width, height],
             mouse: [width / 2.0, height / 2.0],
@@ -41,10 +41,10 @@ pub struct Uniforms {
 }
 
 impl Uniforms {
-    pub fn new(device: &wgpu::Device, height: f32, width: f32) -> Self {
+    pub fn new(device: &wgpu::Device, width: f32, height: f32) -> Self {
         let start_time = std::time::Instant::now();
 
-        let data = UniformData::new(height, width);
+        let data = UniformData::new(width, height);
 
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),

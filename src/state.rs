@@ -76,7 +76,7 @@ impl State {
             source: wgpu::ShaderSource::Wgsl(shader_source.into()),
         });
 
-        let uniforms = uniforms::Uniforms::new(&device, size.height as f32, size.width as f32);
+        let uniforms = uniforms::Uniforms::new(&device, size.width as f32, size.height as f32);
 
         let render_pipeline =
             Self::build_render_pipeline(&device, &config, &uniforms.bind_group_layout, shader);

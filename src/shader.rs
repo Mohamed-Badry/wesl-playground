@@ -101,23 +101,21 @@ impl ShaderController {
             if path
                 .extension()
                 .is_some_and(|ext| ext == "wgsl" || ext == "wesl")
+                && let Some(current_path) = self.playlist.current()
+                && path.file_name() == current_path.file_name()
             {
-                if let Some(current_path) = self.playlist.current() {
-                    if path.file_name() == current_path.file_name() {
-                        hot_reloaded_path = Some(path);
-                    }
-                }
+                hot_reloaded_path = Some(path);
             }
         }
 
-        if let Some(path) = hot_reloaded_path {
-            if let Ok(metadata) = std::fs::metadata(&path) {
-                let new_time = metadata.modified().ok();
+        if let Some(path) = hot_reloaded_path
+            && let Ok(metadata) = std::fs::metadata(&path)
+        {
+            let new_time = metadata.modified().ok();
 
-                if new_time != self.last_modified {
-                    self.last_modified = new_time;
-                    return Some(path);
-                }
+            if new_time != self.last_modified {
+                self.last_modified = new_time;
+                return Some(path);
             }
         }
 
@@ -125,20 +123,20 @@ impl ShaderController {
     }
 
     pub fn handle_playlist_next(&mut self) {
-        if self.playlist.next() {
-            if let Some(path) = self.playlist.current() {
-                self.shader_path = Some(path.clone());
-                self.last_modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
-            }
+        if self.playlist.next()
+            && let Some(path) = self.playlist.current()
+        {
+            self.shader_path = Some(path.clone());
+            self.last_modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
         }
     }
 
     pub fn handle_playlist_prev(&mut self) {
-        if self.playlist.prev() {
-            if let Some(path) = self.playlist.current() {
-                self.shader_path = Some(path.clone());
-                self.last_modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
-            }
+        if self.playlist.prev()
+            && let Some(path) = self.playlist.current()
+        {
+            self.shader_path = Some(path.clone());
+            self.last_modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
         }
     }
 }

@@ -56,7 +56,7 @@ impl ShaderController {
     }
 
     fn current_shader_source(&self) -> ShaderLoadResult {
-        println!("Loading shader from file: {:?}", &self.shader_path);
+        log::info!("Loading shader from file: {:?}", &self.shader_path);
 
         let Some(path) = self.shader_path.as_ref() else {
             return ShaderLoadResult::FileError;
@@ -82,7 +82,7 @@ impl ShaderController {
                 match wgpu::naga::front::wgsl::parse_str(&wgsl_code) {
                     Ok(_) => ShaderLoadResult::Success(wgsl_code.to_string()),
                     Err(e) => {
-                        println!("WGSL Syntax Error in {}: {:?}", path.display(), e);
+                        log::error!("WGSL Syntax Error in {}: {:?}", path.display(), e);
                         ShaderLoadResult::CompileError
                     }
                 }

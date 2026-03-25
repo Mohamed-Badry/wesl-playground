@@ -260,11 +260,6 @@ impl State {
                 };
             }
             _ => {
-                // println!(
-                //     "Key {:?} is {}",
-                //     code,
-                //     if is_pressed { "pressed" } else { "released" }
-                // );
             }
         };
     }
@@ -274,7 +269,7 @@ impl State {
             if let Some(shader_source) = self.shader_controller.get_shader_source() {
                 self.replace_pipeline_from_source(&shader_source);
                 self.uniforms.set_start_time(std::time::Instant::now());
-                println!("Hot Reloaded the shader: {}", path.display());
+                log::info!("Hot Reloaded the shader: {}", path.display());
                 self.window.request_redraw();
             } else {
                 log::error!("Error while hot-reloading shader file: {}", path.display());

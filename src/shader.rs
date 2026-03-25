@@ -69,7 +69,7 @@ impl ShaderController {
         let module_path = format!("package::{}", file_stem);
 
         let Ok(parsed_path) = &module_path.parse() else {
-            eprintln!("Invalid WESL module path: {module_path}. Use underscores, not hyphens.");
+            log::error!("Invalid WESL module path: {module_path}. Use underscores, not hyphens.");
             return ShaderLoadResult::FileError;
         };
 
@@ -88,7 +88,7 @@ impl ShaderController {
                 }
             }
             Err(e) => {
-                eprintln!("WESL Compilation Error in {}: {}", path.display(), e);
+                log::error!("WESL Compilation Error in {}: {}", path.display(), e);
                 ShaderLoadResult::CompileError
             }
         }
@@ -160,7 +160,7 @@ impl ShaderWatcher {
                         let _ = tx.send(event.path);
                     }
                 }
-                Err(e) => eprintln!("File watch error: {:?}", e),
+                Err(e) => log::error!("File watch error: {:?}", e),
             },
         )?;
 
@@ -210,7 +210,7 @@ impl ShaderPlaylist {
                 }
             }
             Err(_) => {
-                eprintln!("Error reading directory: {}", self.dir.display());
+                log::error!("Error reading directory: {}", self.dir.display());
             }
         }
         self.files.sort();

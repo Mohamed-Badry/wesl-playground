@@ -119,7 +119,7 @@ impl State {
         });
 
         if let Some(wgpu_error) = pollster::block_on(error_future) {
-            eprintln!("WGPU Validation Error:\n{}", wgpu_error);
+            log::error!("WGPU Validation Error:\n{}", wgpu_error);
             return;
         }
 

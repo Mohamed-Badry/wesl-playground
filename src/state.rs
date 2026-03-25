@@ -50,7 +50,7 @@ impl State {
         let surface_format = surface_caps
             .formats
             .iter()
-            .find(|f| f.is_srgb())
+            .find(|f| !f.is_srgb())
             .copied()
             .unwrap_or(surface_caps.formats[0]);
 
@@ -268,14 +268,13 @@ impl State {
 
     fn hot_reload_shader(&mut self) {
         if let Some(path) = self.shader_controller.check_for_updates() {
-            match std::fs::read_to_string(&path) {
-                Ok(shader_source) => {
-                    self.replace_pipeline_from_source(&shader_source);
-                    println!("Hot Reloaded the shader: {}", path.display());
-                    self.uniforms.set_start_time(std::time::Instant::now());
-                    self.window.request_redraw();
-                }
-                Err(e) => eprintln!("Error reading shader file: {:?}", e),
+            if let Some(shader_source) = self.shader_controller.get_shader_source() {
+                self.replace_pipeline_from_source(&shader_source);
+                self.uniforms.set_start_time(std::time::Instant::now());
+                println!("Hot Reloaded the shader: {}", path.display());
+                self.window.request_redraw();
+            } else {
+                log::error!("Error while hot-reloading shader file: {}", path.display());
             }
         }
     }

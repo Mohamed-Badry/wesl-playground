@@ -42,7 +42,7 @@ impl ShaderController {
         Ok(Self {
             watcher: ShaderWatcher::new(&dir)?,
             playlist: shader_playlist,
-            shader_path: first_shader.or(None),
+            shader_path: first_shader,
             last_modified: None,
         })
     }
@@ -97,7 +97,7 @@ impl ShaderController {
     pub fn check_for_updates(&mut self) -> Option<PathBuf> {
         let mut hot_reloaded_path = None;
 
-        while let Ok(path) = self.watcher.reciever.try_recv() {
+        while let Ok(path) = self.watcher.receiver.try_recv() {
             if path
                 .extension()
                 .is_some_and(|ext| ext == "wgsl" || ext == "wesl")
@@ -143,7 +143,7 @@ impl ShaderController {
 
 struct ShaderWatcher {
     _debouncer: Debouncer<RecommendedWatcher>,
-    reciever: mpsc::Receiver<PathBuf>,
+    receiver: mpsc::Receiver<PathBuf>,
 }
 
 impl ShaderWatcher {
@@ -169,7 +169,7 @@ impl ShaderWatcher {
 
         Ok(Self {
             _debouncer: debouncer,
-            reciever: rx,
+            receiver: rx,
         })
     }
 }
@@ -196,14 +196,19 @@ impl ShaderPlaylist {
         self.files.clear();
         match fs::read_dir(&self.dir) {
             Ok(entries) => {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_file()
-                        && path
-                            .extension()
-                            .is_some_and(|ext| ext == "wgsl" || ext == "wesl")
-                    {
-                        self.files.push(path);
+                for entry_result in entries {
+                    match entry_result {
+                        Ok(entry) => {
+                            let path = entry.path();
+                            if path.is_file()
+                                && path
+                                    .extension()
+                                    .is_some_and(|ext| ext == "wgsl" || ext == "wesl")
+                            {
+                                self.files.push(path);
+                            }
+                        }
+                        Err(e) => log::error!("Failed to read directory entry: {}", e),
                     }
                 }
             }

@@ -1,4 +1,4 @@
-use crate::{shader, uniforms};
+use crate::{shader::{self, FALLBACK_SHADER}, uniforms};
 use std::sync::Arc;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
@@ -69,7 +69,10 @@ impl State {
 
         let shader_source = shader_controller
             .get_shader_source()
-            .expect("Expected a valid shader source.");
+            .unwrap_or_else(|| {
+                log::error!("Empty shader directory: {}", SHADER_DIR);
+                FALLBACK_SHADER.to_string()
+            });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Initial Shader"),

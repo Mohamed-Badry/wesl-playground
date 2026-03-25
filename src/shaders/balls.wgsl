@@ -49,12 +49,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let aspect = u.resolution.x/u.resolution.y;
     st.x *= aspect;
     let center = vec2f(0.5 * aspect, 0.5);
+    let mouse_centered = u.mouse - center;
 
-    let mouse_centered = (u.mouse - 0.5) * 2.0;
-    let radius = 0.062;
+    let radius = 0.12;
     let dist = mouse_centered;
 
-    const n_circles = 10;
+    const n_circles = 20;
     var pct = 1.;
     pct = bubble(st, center, radius);
 
@@ -70,8 +70,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     var color = vec3f(pct);
-    color.r += 0.5;
-    color.b += 0.2;
+    // color.r += 0.4;
+    color.g += 0.4;
+    color.b += 0.4;
 
-    return vec4f(fract(color * 11.168), 1.0);
+    return vec4f(fract(color * 5.103), 1.0);
 }

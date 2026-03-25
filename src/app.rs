@@ -15,24 +15,35 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(_event_loop: &EventLoop<State>) -> Self {
+    pub fn new(_event_loop: &EventLoop<()>) -> Self {
         Self { state: None }
     }
 }
 
-impl ApplicationHandler<State> for App {
+impl ApplicationHandler<()> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         #[allow(unused_mut)]
         let mut window_attributes = Window::default_attributes();
 
-        let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+        let window = match event_loop.create_window(window_attributes) {
+            Ok(w) => Arc::new(w),
+            Err(e) => {
+                log::error!("Fatal OS Error: Cound not create window: {}", e);
+                event_loop.exit();
+                return;
+            }
+        };
 
-        self.state = Some(pollster::block_on(State::new(window)).unwrap());
-    }
+        let state = match pollster::block_on(State::new(window.clone())) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("Fatal WGPU Error: Cound not initialize: {}", e);
+                event_loop.exit();
+                return;
+            }
+        };
 
-    #[allow(unused_mut)]
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, mut event: State) {
-        self.state = Some(event);
+        self.state = Some(state);
     }
 
     fn window_event(
@@ -81,7 +92,7 @@ impl ApplicationHandler<State> for App {
 pub fn run() -> anyhow::Result<()> {
     env_logger::init();
 
-    let event_loop = EventLoop::with_user_event().build()?;
+    let event_loop = EventLoop::builder().build()?;
     let mut app = App::new(&event_loop);
     event_loop.run_app(&mut app)?;
 

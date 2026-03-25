@@ -1,3 +1,4 @@
+// more like white bubbles but whatever
 struct Uniforms {
     resolution: vec2<f32>,
     mouse: vec2<f32>,
@@ -32,7 +33,7 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
 }
 
 fn rand(r: f32) -> f32 {
-    return fract(sin(r * 12.988) * 47.543);
+    return fract(sin(r * 12.9898) * 43758.5453);
 }
 
 @fragment
@@ -47,7 +48,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var point_arr: array<vec2<f32>, 180>;
 
     for (var i: i32 = 0; i < TOTAL_POINTS - 1; i++) {
-        let r = vec2<f32>(f32(i) * .2332, f32(i) * .2020);
+        let r = vec2<f32>(f32(i) * 234.2332, f32(i) * 150.2020);
 
         // Multiply point X by aspect ratio to spread them across the whole window
         point_arr[i] = vec2<f32>(
@@ -67,7 +68,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     color += m_dist;
     // color = smoothstep(color, vec3f(0.05), vec3f(0.08 * sin(u.time * 5.0)));
-    // color -= vec3f(.01);
+    // color -= vec3f(.1);
 
-    return vec4<f32>(0.7 - color + vec3f(0.0, 0.0, 0.5), 1.0);
+    color = pow(color, vec3f(1 / 2.2));
+
+    return vec4<f32>(0.7 - color + vec3f(0.1, 0.1, 0.5), 1.0);
 }

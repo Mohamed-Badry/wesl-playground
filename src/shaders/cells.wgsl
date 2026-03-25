@@ -32,7 +32,7 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
 }
 
 fn rand(r: f32) -> f32 {
-    return fract(sin(r * 12.9898) * 437.5453);
+    return fract(sin(r * 12.9898) * 43758.5453);
 }
 
 @fragment
@@ -47,9 +47,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var point_arr: array<vec2<f32>, 100>;
 
     for (var i: i32 = 0; i < TOTAL_POINTS - 1; i++) {
-        let r = vec2<f32>(f32(i) * .2332, f32(i) * .2020);
+        let r = vec2<f32>(f32(i) * 17.132, f32(i) * 43.819);
 
-        // Multiply point X by aspect ratio to spread them across the whole window
         point_arr[i] = vec2<f32>(
             (rand(r.x) + 0.6 * sin(u.time * rand(r.y))) * aspect,
             rand(r.y) + 0.6 * cos(u.time * rand(r.x))
